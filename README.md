@@ -65,6 +65,10 @@ python backlog.py --sortby playtime-asc
 python backlog.py --stats
 ```
 
+Note: The --stats option is not currently supported.
+
+Note2: These filters are able to be used together, e.g. `--notplayed --under 5`.
+
 ## Requirements
 
 - Python 3.6+
@@ -73,3 +77,4 @@ python backlog.py --stats
 
 ## Notes
 This is a work in progress project as this is a personal project. If you have any suggestions or feedback, please open an issue on GitHub.
+I have many more features planned, but I am currently focused on getting the core functionality working.
