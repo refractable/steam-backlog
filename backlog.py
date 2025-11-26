@@ -24,16 +24,88 @@ def ensure_cache():
         console.print(f"Error creating cache directory: {e}", style="red")
         sys.exit(1)
 
+def validate_credentials(api_key, steam_id):
+    """Test credentials with a request to API"""
+    url = (
+        f"http://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/"
+        f"?key={api_key}&steamid={steam_id}&format=json"
+    )
+    try:
+
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        return 'response' in data
+
+    except Exception:
+
+        return False
+
+def setup_config():
+    """Setup for creating config"""
+    console = Console()
+
+    console.print("\n[bold cyan]Steam Backlog Tracker Setup[/bold cyan]\n")
+    console.print("To use this tool, you'll need a Steam API key and your Steam ID.\n")
+
+    console.print("[bold]Step 1: Steam API key[/bold]")
+    console.print("Get your key at: https:/steamcommunity.com/dev/apikey", style='dim')
+    api_key = input("Enter your Steam API key: ").strip()
+
+    if not api_key:
+
+        console.print("Error: API key cannot be empty", style='red')
+        sys.exit(1)
+
+    console.print("\n[bold]Step 2: Steam ID[/bold]")
+    console.print("Find your 64-bit Steam ID at: https://steamid.io", style='dim')
+    steam_id = input("Enter your Steam ID: ").strip()
+
+    if not steam_id:
+
+        console.print("Error: Steam ID cannot be empty", style='red')
+        sys.exit(1)
+    
+    console.print("\nValidating credentials..", style='dim')
+
+    if validate_credentials(api_key, steam_id):
+
+        console.print("Credentials are valid. Saving config..", style='green')
+
+    else:
+
+        console.print("Warning: Could not validate credentials", style='yellow')
+        console.print("This could mean invalid API key, private profile, or network issues.", style='dim')
+        confirm = input("Save anyway? (y/n): ".strip().lower())
+
+        if confirm != 'y':
+
+            console.print("Setup cancelled. Exiting..", style='red')
+            sys.exit(1)
+    
+    config = {
+        "API_KEY": api_key,
+        "STEAM_ID": steam_id
+    }
+
+    try:
+        with open("config.json", "w") as f:
+            json.dump(config, f, indent=2)
+        console.print("\nConfig saved to config.json", style='green')
+        console.print("Run 'python backlog.py --sync' to fetch your game library\n", style='dim')
+    except OSError as e:
+        console.print(f"Error saving config: {e}", style='red')
+        sys.exit(1)
+    
+    return config
 
 def load_config():
+    
     console = Console()
 
     if not os.path.exists("config.json"):
 
-        console.print("Error: config.json not found", style="red")
-        console.print("\nPlease create a config.json file with the following structure:", style="yellow")
-        console.print('{\n  "API_KEY": "your_api_key",\n  "STEAM_ID": "your_steam_id"\n}', style="yellow")
-        sys.exit(1)
+        return setup_config()
 
     try:
 
@@ -43,8 +115,14 @@ def load_config():
 
     except json.JSONDecodeError:
 
-        console.print("Error: config.json is missing required keys!", style="red")
-        console.print('Required keys: "API_KEY" and "STEAM_ID"', style="yellow")
+        console.print("Error: config.json is corrupted or invalid", style='red')
+        console.print("Delete config.json and run again to start fresh", style='yellow')
+        sys.exit(1)
+
+    if "API_KEY" not in config or "STEAM_ID" not in config:
+
+        console.print("Error: config.json is missing required keys", style='red')
+        console.print("Delete config.json and run again to start fresh", style='yellow')
         sys.exit(1)
 
     return config
@@ -59,6 +137,7 @@ def fetch_games(api_key, steam_id):
 
     console = Console()
 
+    # check if API key is valid
     try:
 
         response = requests.get(url, timeout=10)
@@ -72,6 +151,7 @@ def fetch_games(api_key, steam_id):
 
         return data['response']['games']
 
+    # checks if there is a network error
     except requests.exceptions.Timeout:
 
         console.print("Error: Steam API request timed out", style="red")
@@ -83,7 +163,8 @@ def fetch_games(api_key, steam_id):
         console.print("Error: Could not connect to Steam API", style="red")
         console.print("Check your internet connection and try again", style="yellow")
 
-    except requests.exceptions.HTTPError as e:
+    except requests.exceptions.HTTPError as e:  
+
         status_code = e.response.status_code if e.response else 500
 
         if status_code == 401:
@@ -163,6 +244,7 @@ def display_games(games, title="Library", last_updated=None):
     table.add_column("Game", justify="left", style="green", no_wrap=False)
     table.add_column("Playtime", justify="right", style="cyan")
 
+    # checks hours played and displays it
     for game in games:
 
         hours = game["playtime_forever"] / 60
@@ -171,6 +253,7 @@ def display_games(games, title="Library", last_updated=None):
     console.print(table)
     console.print(f"\nTotal games: {len(games)}", style="dim")
 
+    # self explanatory i think
     if last_updated:
 
         dt = datetime.fromisoformat(last_updated)
@@ -224,12 +307,30 @@ def main():
     parser.add_argument('--sortby', choices=['name', 'playtime', 'playtime-asc'],
                         help='Sort games by name or playtime')
     parser.add_argument('--stats', action='store_true', help='Display library statistics')
-
+    parser.add_argument('--setup', action='store_true', help='Run setup wizard to configure credentials')
     args = parser.parse_args()
 
     config = load_config()
 
- 
+    # first time setup / reconfigure setup
+    if args.setup:
+
+        if os.path.exists("config.json"):
+
+            console = Console()
+            confirm = input("config.json already exists. Overwrite? (y/n): ").strip().lower()
+
+            if confirm != 'y':
+
+                console.print("Setup cancelled", style='yellow')
+
+                return
+
+        setup_config()
+
+        return
+
+
     # syncing, checks if user has cache already or not
     if args.sync:
 
