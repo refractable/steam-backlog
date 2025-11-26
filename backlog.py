@@ -10,7 +10,6 @@ from rich.table import Table
 CACHE_DIR = "cache"
 CACHE_FILE = os.path.join(CACHE_DIR, "games.json")
 
-
 def ensure_cache():
     """Create cache directory if it doesn't exist"""
     try:
@@ -24,6 +23,7 @@ def ensure_cache():
         console.print(f"Error creating cache directory: {e}", style="red")
         sys.exit(1)
 
+        
 def validate_credentials(api_key, steam_id):
     """Test credentials with a request to API"""
     url = (
@@ -40,6 +40,7 @@ def validate_credentials(api_key, steam_id):
     except Exception:
 
         return False
+
 
 def setup_config():
     """Setup for creating config"""
@@ -65,7 +66,7 @@ def setup_config():
 
         console.print("Error: Steam ID cannot be empty", style='red')
         sys.exit(1)
-    
+
     console.print("\nValidating credentials..", style='dim')
 
     if validate_credentials(api_key, steam_id):
@@ -82,7 +83,7 @@ def setup_config():
 
             console.print("Setup cancelled. Exiting..", style='red')
             sys.exit(1)
-    
+
     config = {
         "API_KEY": api_key,
         "STEAM_ID": steam_id
@@ -98,6 +99,7 @@ def setup_config():
         sys.exit(1)
 
     return config
+
 
 def load_config():
 
@@ -357,7 +359,7 @@ def display_stats(games):
         pct_line += f" [green]{percent:4.0f}%[/green] "
 
     console.print(pct_line)
-    short_labels = ["0 hrs", "<1 hr", "1-10", "10-50", "50-100", "100+"]
+    short_labels = [" 0 hr", " <1 hr", "1-10", "10-50", "50-100", "100+"]
     label_line = " "
 
     for short in short_labels:
@@ -378,6 +380,7 @@ def main():
                         help='Sort games by name or playtime')
     parser.add_argument('--stats', action='store_true', help='Display library statistics')
     parser.add_argument('--setup', action='store_true', help='Run setup wizard to configure credentials')
+    parser.add_argument('--search', type=str, help='Search for a game by name')
     args = parser.parse_args()
 
     config = load_config()
@@ -431,6 +434,10 @@ def main():
         display_stats(games)
         return
 
+    if args.search:
+        search_term = args.search.lower()
+        games = [g for g in games if search_term in g['name'].lower()]
+
     # filtering
     if args.notplayed:
 
@@ -455,6 +462,11 @@ def main():
 
 
     # title labeling
+
+    if args.search:
+
+        title = f"Search results for {args.search}"
+
     if args.notplayed:
 
         title = "Not played games"
