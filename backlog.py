@@ -501,6 +501,7 @@ def main():
     parser.add_argument('--untag', nargs=2, metavar=('GAME', 'TAG'), help='Remove a tag from a game')
     parser.add_argument('--tags', action='store_true', help='Display all tags')
     parser.add_argument('--filter-tag', type=str, metavar='TAG', help='Filter games by tag')
+    parser.add_argument('--limit', type=int, help='Limit number of games to display')
 
     args = parser.parse_args()
 
@@ -737,7 +738,11 @@ def main():
     else:
 
         title = "Library"
- 
+    
+    if args.limit:
+
+        games = games[:args.limit]
+
     display_games(games, title, last_updated=last_updated)
 
 
