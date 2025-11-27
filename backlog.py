@@ -490,8 +490,9 @@ def main():
     parser.add_argument('--between', nargs=2, type=float, metavar=('MIN', 'MAX'),
                         help="Display games that have between MIN and MAX hours played")
     parser.add_argument('--started', action='store_true', help="Display games started but barely played (0-2hrs)")
+    parser.add_argument('--recent', action='store_true', help="Display recently played games in the last two weeks")
     parser.add_argument('--sync', action='store_true', help="Sync the game library from Steam")
-    parser.add_argument('--sortby', choices=['name', 'playtime', 'playtime-asc'],
+    parser.add_argument('--sortby', choices=['name', 'playtime', 'playtime-asc', 'recent'],
                         help='Sort games by name or playtime')
     parser.add_argument('--stats', action='store_true', help='Display library statistics')
     parser.add_argument('--setup', action='store_true', help='Run setup wizard to configure credentials')
@@ -577,7 +578,7 @@ def main():
             return
 
         if args.untag:
-            
+ 
             game_name, tag_name = args.untag
             result = find_game_by_name(games, game_name)
             console = Console()
@@ -648,10 +649,11 @@ def main():
     if args.stats:
         display_stats(games)
         return
-    
+
     
     # filtering
     if args.search:
+
         search_term = args.search.lower()
         games = [g for g in games if search_term in g['name'].lower()]
     
@@ -659,19 +661,23 @@ def main():
 
         tags = load_tags()
         games = [g for g in games if args.filter_tag in tags.get(str(g['appid']), [])]
-        
+
     if args.notplayed:
 
         games = [g for g in games if g['playtime_forever'] == 0]
-    
+
     elif args.started:
 
         games = [g for g in games if g['playtime_forever'] / 60 <= 2]
 
+    elif args.recent:
+
+        games = [g for g in games if g.get('playtime_2weeks', 0) > 0]
+
     elif args.under:
 
         games = [g for g in games if g['playtime_forever'] / 60 < args.under]
-    
+
     elif args.over:
 
         games = [g for g in games if g['playtime_forever'] / 60 > args.over]
@@ -695,7 +701,10 @@ def main():
     elif args.sortby == 'playtime-asc':
 
         games = sorted(games, key=lambda g: g['playtime_forever'])
+    
+    elif args.sortby == 'recent':
 
+        games = sorted(games, key=lambda g: g.get('rtime_last_played', 0), reverse=True)
 
     # title labeling
 
@@ -709,6 +718,10 @@ def main():
     elif args.started:
 
         title = "Started but barely played games (0-2hrs)"
+
+    elif args.recent:
+        
+        title = f"Recently played (last 2 weeks)"
 
     elif args.under:
 
