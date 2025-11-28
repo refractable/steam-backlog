@@ -11,6 +11,7 @@ CACHE_DIR = "cache"
 CACHE_FILE = os.path.join(CACHE_DIR, "games.json")
 TAGS_FILE = os.path.join(CACHE_DIR, "tags.json")
 STATUS_FILE = os.path.join(CACHE_DIR, "status.json")
+MANUAL_GAMES_FILE = os.path.join(CACHE_DIR, "manual_games.json")
 
 
 def ensure_cache():
@@ -241,7 +242,7 @@ def load_status():
         return {}
 
 
-def save_status():
+def save_status(status):
     """Save manual status overrides to file"""
     ensure_cache()
 
@@ -251,6 +252,56 @@ def save_status():
     except OSError as e:
         console = Console()
         console.print(f"Error saving status: {e}", style="red")
+
+
+def load_manual_games():
+    """Load manually added games from file"""
+    if not os.path.exists(MANUAL_GAMES_FILE):
+        return []
+
+    try:
+        with open(MANUAL_GAMES_FILE) as f:
+            return json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return []
+
+
+def save_manual_games(games):
+    """Save manually added games to file"""
+    ensure_cache()
+    try:
+        with open(MANUAL_GAMES_FILE, "w") as f:
+            json.dump(games, f, indent=2)
+    except OSError as e:
+        console = Console()
+        console.print(f"Error saving manually added games: {e}", style="red")
+
+
+def get_next_manual_id():
+    """Generate next manual game ID"""
+    games = load_manual_games()
+    if not games:
+        return "manual_1"
+
+    max_id = 0
+    for game in games:
+        if game.get("appid", "").startswith("manual_"):
+            try:
+                num = int(game["appid"].split("_")[1])
+                max_id = max(max_id, num)
+            except (ValueError, IndexError):
+                pass
+    return f"manual_{max_id + 1}"
+
+
+def merge_games(steam_games, manual_games):
+    """Merge steam and manual games into one list"""
+    for game in steam_games:
+        game["source"] = "Steam"
+    for game in manual_games:
+        game["source"] = game.get("platform", "Manual")
+
+    return steam_games + manual_games
 
 
 def get_game_status(game, manual_status=None):
@@ -303,10 +354,15 @@ def display_games(games, title="Library", last_updated=None):
     tags = load_tags()
     manual_status = load_status()
 
+    has_manual = any(g.get("source") != "Steam" for g in games)
+
     table = Table(title=title)
     table.add_column("Game", justify="left", style="green", no_wrap=False)
     table.add_column("Playtime", justify="right", style="cyan")
     table.add_column("Status", justify="left", style="magenta")
+
+    if has_manual:
+        table.add_column("Source", justify="left", style="blue")
 
     if tags:
         table.add_column("Tags", justify="left", style="yellow")
@@ -318,13 +374,15 @@ def display_games(games, title="Library", last_updated=None):
         appid = str(game["appid"])
         game_tags = tags.get(appid, [])
         status = get_game_status(game, manual_status)
+        source = game.get("source", "Steam")
 
+        row = [game["name"], f"{hours:.2f} hours", status]
+        if has_manual:
+            row.append(source)
         if tags:
-            table.add_row(
-                game["name"], f"{hours:.2f} hours", status, ", ".join(game_tags)
-            )
-        else:
-            table.add_row(game["name"], f"{hours:.2f} hours", status)
+            row.append(", ".join(game_tags))
+
+        table.add_row(*row)
 
     console.print(table)
     console.print(f"\nTotal games: {len(games)}", style="dim")
@@ -489,7 +547,15 @@ def export_csv(games, filename="backlog.csv"):
     with open(filename, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerow(
-            ["Name", "AppID", "Playtime (hrs)", "Last Played", "Status", "Tags"]
+            [
+                "Name",
+                "AppID",
+                "Playtime (hrs)",
+                "Last Played",
+                "Status",
+                "Source",
+                "Tags",
+            ]
         )
 
         for game in games:
@@ -503,10 +569,19 @@ def export_csv(games, filename="backlog.csv"):
                 last_played = "Never"
 
             status = get_game_status(game, manual_status)
+            source = game.get("source", "Steam")
             game_tags = ", ".join(tags.get(appid, []))
 
             writer.writerow(
-                [game["name"], appid, f"{hours:.2f}", status, last_played, game_tags]
+                [
+                    game["name"],
+                    appid,
+                    f"{hours:.2f}",
+                    last_played,
+                    status,
+                    source,
+                    game_tags,
+                ]
             )
 
     return filename
@@ -530,12 +605,14 @@ def export_json(games, filename="backlog.json"):
             last_played = None
 
         status = get_game_status(game, manual_status)
+        source = game.get("source", "Steam")
         export_data.append(
             {
                 "name": game["name"],
                 "appid": game["appid"],
                 "playtime_hours": round(hours, 2),
                 "status": status,
+                "source": source,
                 "last_played": last_played,
                 "tags": tags.get(appid, []),
             }
@@ -630,6 +707,31 @@ def main():
         help="Filter by status",
     )
 
+    # manual games arguments
+    parser.add_argument(
+        "--addgame", type=str, metavar="NAME", help="Add a non-Steam game"
+    )
+    parser.add_argument(
+        "--platform",
+        type=str,
+        default="Other",
+        help="Platform for manual game (use with --addgame)",
+    )
+    parser.add_argument(
+        "--logtime",
+        nargs=2,
+        metavar=("GAMES", "HOURS"),
+        help="Log playtime for manual games",
+    )
+    parser.add_argument(
+        "--removegame", type=str, metavar="NAME", help="Remove a manually added game"
+    )
+    parser.add_argument(
+        "--source",
+        choices=["steam", "manual", "all"],
+        default="all",
+        help="Filter by game source",
+    )
     args = parser.parse_args()
 
     config = load_config()
@@ -647,6 +749,87 @@ def main():
                 return
 
         setup_config()
+        return
+
+    if args.addgame:
+        console = Console()
+        manual_games = load_manual_games()
+
+        for game in manual_games:
+            if game["name"].lower() == args.addgame.lower():
+                console.print(
+                    f"'{args.addgame}' already exists in manual games", style="yellow"
+                )
+                return
+
+        new_game = {
+            "appid": get_next_manual_id(),
+            "name": args.addgame,
+            "platform": args.platform,
+            "playtime_forever": 0,
+            "rtime_last_played": 0,
+            "playtime_2weeks": 0,
+        }
+        manual_games.append(new_game)
+        save_manual_games(manual_games)
+        console.print(f"Added '{args.addgame}' ({args.platform})", style="green")
+        return
+
+    if args.removegame:
+        console = Console()
+        manual_games = load_manual_games()
+
+        found = None
+        for game in manual_games:
+            if game["name"].lower() == args.removegame.lower():
+                found = game
+                break
+
+        if not found:
+            console.print(f"No game found matching '{args.removegame}'", style="red")
+            console.print(
+                f"Note: Steam games cannot be removed, only manual entries.",
+                style="dim",
+            )
+            return
+
+        manual_games.remove(found)
+        save_manual_games(manual_games)
+        console.print(f"Removed '{found['name']}'", style="green")
+        return
+
+    if args.logtime:
+        game_name, hours_str = args.logtime
+        try:
+            hours = float(hours_str)
+        except ValueError:
+            console = Console()
+            console.print(f"Invalid hours: {hours_str}", style="red")
+            return
+        console = Console()
+        manual_games = load_manual_games()
+
+        found = None
+        for game in manual_games:
+            if game["name"].lower() == game_name.lower():
+                found = game
+                break
+        if not found:
+            console.print(f"No manual game found matching '{game_name}'", style="red")
+            console.print(f"Note: Steam games are tracked automatically", style="dim")
+            return
+
+        import time as time_module
+
+        found["playtime_forever"] += int(hours * 60)
+        found["rtime_last_played"] = int(time_module.time())
+        save_manual_games(manual_games)
+
+        total_hours = found["playtime_forever"] / 60
+        console.print(
+            f"Logged {hours} hours for '{game_name}' ({total_hours:.2f} hours total)",
+            style="green",
+        )
         return
 
     # tag management
@@ -838,6 +1021,14 @@ def main():
 
         games = cache_data["games"]
         last_updated = cache_data["last_updated"]
+
+    manual_games = load_manual_games()
+    games = merge_games(games, manual_games)
+
+    if args.source == "steam":
+        games = [g for g in games if g.get("source") == "Steam"]
+    elif args.source == "manual":
+        games = [g for g in games if g.get("source") != "Steam"]
 
     # statistics
     if args.stats:
