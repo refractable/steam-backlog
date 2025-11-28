@@ -170,6 +170,23 @@ def fetch_games(api_key, steam_id):
         sys.exit(1)
 
 
+def lookup_steam_game(appid):
+    """Lookup game name from Steam Store API by App ID"""
+    url = f"https://store.steampowered.com/api/appdetails?appids={appid}"
+
+    try:
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        
+        app_data = data.get(str(appid))
+        if app_data and app_data.get("success"):
+            return app_data.get("data", {}).get("name")
+        return None
+    except Exception:
+        return None
+
+
 def save_cache(games):
     """Save the user's game library to a cache file with timestamp"""
     ensure_cache()
@@ -369,7 +386,6 @@ def display_games(games, title="Library", last_updated=None):
 
     # checks hours played and displays it
     for game in games:
-
         hours = game["playtime_forever"] / 60
         appid = str(game["appid"])
         game_tags = tags.get(appid, [])
@@ -682,7 +698,18 @@ def main():
     parser.add_argument(
         "--filter-tag", type=str, metavar="TAG", help="Filter games by tag"
     )
-
+    parser.add_argument(
+        "--bulktag",
+        nargs="+",
+        metavar="ARGS",
+        help="Add tag to multiple games: --bulktag TAG GAME1 GAME2 ...",
+    )
+    parser.add_argument(
+        "--bulkuntag",
+        nargs="+",
+        metavar="ARGS",
+        help="Remove tag from multiple games: --bulkuntag TAG GAME1 GAME2 ...",
+    )
     parser.add_argument("--limit", type=int, help="Limit number of games to display")
     parser.add_argument(
         "--export",
@@ -705,6 +732,12 @@ def main():
         type=str,
         choices=["playing", "backlog", "dropped", "inactive", "completed", "hold"],
         help="Filter by status",
+    )
+    parser.add_argument(
+        "--bulkstatus",
+        nargs="+",
+        metavar="ARGS",
+        help="Set status for multiple games: --bulkstatus STATUS GAME1 GAME2 ...",
     )
 
     # manual games arguments
@@ -732,6 +765,7 @@ def main():
         default="all",
         help="Filter by game source",
     )
+
     args = parser.parse_args()
 
     config = load_config()
@@ -755,13 +789,46 @@ def main():
         console = Console()
         manual_games = load_manual_games()
 
+        if args.addgame.isdigit():
+            appid = args.addgame
+            console.print(f"Looking up Steam AppID {appid}...", style="dim")
+            game_name = lookup_steam_game(appid)
+
+            if not game_name:
+                console.print(f"Could not find game with AppID {appid}", style="red")
+                return
+
+            for game in manual_games:
+                if (
+                    str(game.get("appid")) == appid
+                    or game["name"].lower() == game_name.lower()
+                ):
+                    console.print(
+                        f"'{game_name}' already exists in manual games", style="yellow"
+                    )
+                    return
+
+            new_game = {
+                "appid": appid,
+                "name": game_name,
+                "platform": args.platform,
+                "playtime_forever": 0,
+                "rtime_last_played": 0,
+                "playtime_2weeks": 0,
+            }
+            manual_games.append(new_game)
+            save_manual_games(manual_games)
+            console.print(
+                f"Added '{game_name}' (App ID: {appid}, {args.platform})", style="green"
+            )
+            return
+
         for game in manual_games:
             if game["name"].lower() == args.addgame.lower():
                 console.print(
-                    f"'{args.addgame}' already exists in manual games", style="yellow"
+                    f"{args.addgame} already exists in manual games", style="yellow"
                 )
                 return
-
         new_game = {
             "appid": get_next_manual_id(),
             "name": args.addgame,
@@ -842,6 +909,8 @@ def main():
             return
 
         games = cache_data["games"]
+        manual_games = load_manual_games()
+        games = merge_games(games, manual_games)
 
         if args.tags:
             display_all_tags(games)
@@ -915,6 +984,91 @@ def main():
 
             return
 
+    # bulk tag management (pain)
+    if args.bulktag or args.bulkuntag:
+        cache_data = load_cache()
+
+        if cache_data is None:
+            console = Console()
+            console.print("No cache found. Use --sync first", style="red")
+            return
+
+        games = cache_data["games"]
+        manual_games = load_manual_games()
+        games = merge_games(games, manual_games)
+        console = Console()
+
+        if args.bulktag:
+            if len(args.bulktag) < 2:
+                console.print("Usage: --bulktag TAG GAME1 GAME2 GAME3 ...", style="red")
+                return
+
+            tag_name = args.bulktag[0]
+            game_names = args.bulktag[1:]
+            tags = load_tags()
+            success_count = 0
+
+            for game_name in game_names:
+                result = find_game_by_name(games, game_name)
+
+                if result is None:
+                    console.print(f"  No game found: '{game_name}'", style="red")
+                elif isinstance(result, list):
+                    console.print(f"  Multiple matches: '{game_name}'", style="yellow")
+                else:
+                    appid = str(result["appid"])
+                    if appid not in tags:
+                        tags[appid] = []
+                    if tag_name not in tags[appid]:
+                        tags[appid].append(tag_name)
+                        console.print(f"  Tagged: {result['name']}", style="green")
+                        success_count += 1
+                    else:
+                        console.print(
+                            f"  Already tagged: {result['name']}", style="dim"
+                        )
+            save_tags(tags)
+            console.print(
+                f"\nAdded tag '{tag_name}' to {success_count} game(s)",
+                style="bold_green",
+            )
+            return
+
+        if args.bulkuntag:
+            if len(args.bulkuntag) < 2:
+                console.print("Usage: --bulkuntag TAG GAME1 GAME2 ...", style="red")
+                return
+
+            tag_name = args.bulkuntag[0]
+            game_names = args.bulkuntag[1:]
+            tags = load_tags()
+            success_count = 0
+
+            for game_name in game_names:
+                result = find_game_by_name(games, game_name)
+
+                if result is None:
+                    console.print(f"  No game found: '{game_name}'", style="red")
+                elif isinstance(result, list):
+                    console.print(f"  Multiple matches: '{game_name}'", style="yellow")
+                else:
+                    appid = str(result["appid"])
+                    if appid in tags and tag_name in tags[appid]:
+                        tags[appid].remove(tag_name)
+                        if not tags[appid]:
+                            del tags[appid]
+                        console.print(f"  Untagged: {result['name']}", style="green")
+                        success_count += 1
+                    else:
+                        console.print(f"  No such tag: {result['name']}", style="dim")
+
+            save_tags(tags)
+            console.print(
+                f"\nRemoved '{tag_name}' from {success_count} game(s)",
+                style="bold green",
+            )
+            return
+
     # status management
     if args.setstatus or args.clearstatus:
         cache_data = load_cache()
@@ -932,10 +1086,10 @@ def main():
             if new_status not in ["completed", "hold"]:
                 console = Console()
                 console.print(
-                    f"Manual status must be 'completed' or 'hold'", style="red"
+                    "Manual status must be 'completed' or 'hold'", style="red"
                 )
                 console.print(
-                    f"Other statuses (playing, backlog, dropped) are auto-detected",
+                    "Other statuses (playing, backlog, dropped) are auto-detected",
                     style="dim",
                 )
                 return
@@ -996,6 +1150,57 @@ def main():
                     f"{result['name']} has no manual status override", style="yellow"
                 )
             return
+    # bulk status management
+    if args.bulkstatus:
+        if len(args.bulkstatus) < 2:
+            console = Console()
+            console.print("Usage: --bulkstatus STATUS GAME1 GAME2 ...", style="red")
+            return
+
+        new_status = args.bulkstatus[0]
+        game_names = args.bulkstatus[1:]
+
+        if new_status not in ["completed", "hold"]:
+            console = Console()
+            console.print(f"Manual status must be 'completed' or 'hold'", style="red")
+            console.print(
+                "Other statuses (playing, backlog, dropped) are auto-detected",
+                style="dim",
+            )
+            return
+
+        cache_data = load_cache()
+
+        if cache_data is None:
+            console = Console()
+            console.print("No cache found. Use --sync first", style="red")
+            return
+
+        games = cache_data["games"]
+        manual_games = load_manual_games()
+        games = merge_games(games, manual_games)
+        console = Console()
+        status = load_status()
+        success_count = 0
+
+        for game_name in game_names:
+            result = find_game_by_name(games, game_name)
+
+            if result is None:
+                console.print(f"  No game found: '{game_name}'", style="red")
+            elif isinstance(result, list):
+                console.print(f"  Multiple matches: '{game_name}'", style="yellow")
+            else:
+                appid = str(result["appid"])
+                status[appid] = new_status
+                console.print(f"  Set status: {result['name']}", style="green")
+                success_count += 1
+
+        save_status(status)
+        console.print(
+            f"\nSet '{new_status}' for {success_count} game(s)", style="green"
+        )
+        return
 
     # syncing, checks if user has cache already or not
     if args.sync:
