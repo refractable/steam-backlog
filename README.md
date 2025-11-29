@@ -1,10 +1,10 @@
-# Steam Backlog Tracker
+# Backpile
 
 [![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-A command-line tool to track and manage your Steam game library. Pull data directly from Steam's API and get insights into your backlog with filtering, tagging, status tracking, and statistics.
+A simple command-line tool for tracking your Steam game library.
 
 ---
 
@@ -27,7 +27,7 @@ A command-line tool to track and manage your Steam game library. Pull data direc
 ### Installation
 
 ```bash
-git clone https://github.com/refractable/steam-backlog.git
+git clone https://github.com/refractable/backpile.git
 cd steam-backlog
 pip install requests rich
 ```
@@ -160,7 +160,7 @@ python main.py --filterstatus completed --export csv
 ## Project Structure
 
 ```
-steam-backlog/
+backpile/
 ├── main.py              # Entry point
 ├── backlog/
 │   ├── __init__.py      # Constants

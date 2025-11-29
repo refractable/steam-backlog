@@ -1,4 +1,4 @@
-# Contributing to Steam Backlog Tracker
+# Contributing to Backpile
 
 Thanks for your interest in contributing! This document outlines how to get started.
 
@@ -7,7 +7,7 @@ Thanks for your interest in contributing! This document outlines how to get star
 1. Fork the repository
 2. Clone your fork:
    ```bash
-   git clone https://github.com/refractable/steam-backlog.git
+   git clone https://github.com/refractable/backpile.git
    cd steam-backlog
    ```
 3. Install dependencies:
