@@ -8,7 +8,7 @@ Thanks for your interest in contributing! This document outlines how to get star
 2. Clone your fork:
    ```bash
    git clone https://github.com/refractable/backpile.git
-   cd steam-backlog
+   cd backpile
    ```
 3. Install dependencies:
    ```bash
