@@ -1,4 +1,4 @@
-# 🎮 Steam Backlog Tracker
+# Steam Backlog Tracker
 
 [![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
@@ -12,13 +12,13 @@ A command-line tool to track and manage your Steam game library. Pull data direc
 
 | Feature | Description |
 |---------|-------------|
-| 🔄 **Sync Library** | Fetch games directly from Steam API |
-| 🔍 **Smart Filtering** | Filter by playtime, status, tags, recent activity |
-| 🏷️ **Tag System** | Organize games with custom tags |
-| 📊 **Status Tracking** | Auto-detects playing/backlog/dropped with manual overrides |
-| 🎯 **Manual Entries** | Track non-Steam games alongside your library |
-| 📈 **Statistics** | Playtime distribution charts and library insights |
-| 📁 **Export** | Save to CSV or JSON |
+|**Sync Library** | Fetch games directly from Steam API |
+|**Smart Filtering** | Filter by playtime, status, tags, recent activity |
+|**Tag System** | Organize games with custom tags |
+|**Status Tracking** | Auto-detects playing/backlog/dropped with manual overrides |
+|**Manual Entries** | Track non-Steam games alongside your library |
+|**Statistics** | Playtime distribution charts and library insights |
+|**Export** | Save to CSV or JSON |
 
 ---
 
@@ -39,8 +39,8 @@ python main.py
 ```
 
 You'll need:
-- 🔑 **Steam API Key** → [Get one here](https://steamcommunity.com/dev/apikey)
-- 🆔 **Steam ID** → [Find yours here](https://steamid.io)
+- **Steam API Key** → [Get one here](https://steamcommunity.com/dev/apikey)
+- **Steam ID** → [Find yours here](https://steamid.io)
 
 ### First Run
 
@@ -52,7 +52,7 @@ python main.py --stats   # See statistics
 
 ---
 
-## 📖 Usage
+## Usage
 
 ### Filtering Games
 
@@ -82,7 +82,7 @@ python main.py --sortby playtime-asc  # Least played first
 python main.py --sortby recent        # Recently played first
 ```
 
-### 🏷️ Tags
+### Tags
 
 ```bash
 python main.py --tag "Dark Souls" rpg              # Add tag
@@ -94,7 +94,7 @@ python main.py --bulktag coop "Portal 2" "Left 4 Dead" Terraria
 python main.py --bulkuntag coop "Portal 2" "Left 4 Dead"
 ```
 
-### 📊 Status Tracking
+### Status Tracking
 
 **Auto-detected:**
 | Status | Condition |
@@ -111,7 +111,7 @@ python main.py --bulkstatus completed "Dark Souls" "Elden Ring" "Sekiro"
 python main.py --clearstatus "Dark Souls"    # Revert to auto-detect
 ```
 
-### 🎯 Manual Games
+### Manual Games
 
 Track non-Steam games or games from other platforms:
 
@@ -129,7 +129,7 @@ python main.py --source steam     # Steam only
 python main.py --source manual    # Manual only
 ```
 
-### 📁 Export
+### Export
 
 ```bash
 python main.py --export csv                        # Export all
@@ -139,7 +139,7 @@ python main.py --filterstatus completed --export csv
 
 ---
 
-## 💡 Examples
+## Examples
 
 ```bash
 # Find RPGs I haven't finished
@@ -157,7 +157,7 @@ python main.py --filterstatus completed --export csv
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 steam-backlog/
@@ -180,10 +180,10 @@ steam-backlog/
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
-## 📄 License
+## License
 
 [MIT](LICENSE) © 2025
