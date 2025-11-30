@@ -1,33 +1,36 @@
 ---
-name: Bug Report
-about: Report a bug or unexpected behavior
-title: "[BUG] "
+name: 🐛 Bug Report
+about: Something isn't working as expected
+title: ""
 labels: bug
 assignees: ''
 ---
 
-**Describe the bug**
+### Description
+
 A clear description of what the bug is.
 
-**To reproduce**
-Steps to reproduce the behavior:
-1. Run command '...'
-2. See error
+### Steps to Reproduce
 
-**Expected behavior**
+1. Run `python main.py ...`
+2. ...
+3. See error
+
+### Expected Behavior
+
 What you expected to happen.
 
-**Actual behavior**
+### Actual Behavior
+
 What actually happened.
 
-**Error output**
+### Error Output
+
 ```
 Paste any error messages here
 ```
 
-**Environment**
-- OS: [e.g. Windows 11, Ubuntu 24.04, macOS 14]
-- Python version: [e.g. 3.11]
+### Environment
 
-**Additional context**
-Any other relevant information.
+- **OS:** (e.g. Windows 11, Ubuntu 24.04, macOS 15)
+- **Python:** (e.g. 3.11)
