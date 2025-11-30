@@ -1,16 +1,19 @@
 ---
-name: Question
+name: ❓ Question
 about: Ask a question about usage or functionality
-title: "[QUESTION] "
+title: ""
 labels: question
 assignees: ''
 ---
 
-**Question**
+### Question
+
 What would you like to know?
 
-**Context**
-Any relevant context about what you're trying to do.
+### Context
 
-**What I've tried**
+What are you trying to accomplish?
+
+### What I've Tried
+
 Any commands or approaches you've already attempted.
